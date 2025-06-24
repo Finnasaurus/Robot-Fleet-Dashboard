@@ -152,13 +152,24 @@
                 </div>
             </div>
 
-            <!-- Configuration Status Banner -->
-            <div v-if="configLoadTime" class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-                <p class="text-blue-800">
-                    Configuration loaded at {{ configLoadTime }} • 
-                    {{ robotNames.length }} robots configured • 
-                    {{ motorEnabledRobots.length }} with motor capabilities
-                </p>
+            <!-- Updated Configuration Status Banner with Close Button -->
+            <div v-if="configLoadTime && !configBannerDismissed" class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <div class="flex items-center justify-between">
+                    <p class="text-blue-800">
+                        Configuration loaded at {{ configLoadTime }} • 
+                        {{ robotNames.length }} robots configured • 
+                        {{ motorEnabledRobots.length }} with motor capabilities
+                    </p>
+                    <button 
+                        @click="configBannerDismissed = true"
+                        class="text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded p-1"
+                        title="Close banner"
+                    >
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <!-- Compact Error Summary Banner -->
@@ -517,6 +528,7 @@
                 const selectedRobot = ref('');
                 const lastUpdate = ref('N/A');
                 const errorSummaryExpanded = ref(false);
+                const configBannerDismissed = ref(false);
                 const robotData = ref({
                     pingStatus: {},
                     robotStatus: {},
@@ -886,6 +898,7 @@
                     motorEnabledRobots,
                     systemConfig,
                     configLoadTime,
+                    configBannerDismissed,
                     motorUpdateKey,
                     workerActive,
                     errorSummaryExpanded,
