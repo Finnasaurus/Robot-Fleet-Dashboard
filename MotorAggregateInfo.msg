@@ -1,0 +1,2 @@
+MotorInfo motor1
+MotorInfo motor2

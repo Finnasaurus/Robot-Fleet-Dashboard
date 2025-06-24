@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Dashboard</title>
+    <!-- Vue.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.2.31/vue.global.min.js"></script>
+    <!-- Tailwind CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <!-- Motor animations CSS -->
+    <link href="/static/css/motor-animations.css" rel="stylesheet">
+    <!-- Battery and error indicator styles -->
+    <style>
+        .robot-button {
+            position: relative;
+            /* Note: overflow: hidden removed to allow error indicators to show */
+        }
+        .battery-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            transition: width 0.3s ease;
+        }
+        .battery-text {
+            position: absolute;
+            bottom: 4px;
+            right: 2px;
+            font-size: 9px;
+            font-weight: bold;
+            text-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        .robot-name {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .error-pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        /* Error ring animations */
+        .ring-offset-1 {
+            --tw-ring-offset-width: 1px;
+        }
+        .ring-offset-2 {
+            --tw-ring-offset-width: 2px;
+        }
+        /* Ensure z-index layers work properly */
+        .z-10 {
+            z-index: 10;
+        }
+        .z-20 {
+            z-index: 20;
+        }
+    </style>
+    <!-- Component Scripts - Load before main.js -->
+    <script src="/static/js/services/MotorDataService.js"></script>
+    <script src="/static/js/components/MotorDataComponent.js"></script>
+    <script src="/static/js/components/MotorDetailComponent.js"></script>
+    <script src="/static/js/components/RobotIndicatorComponent.js"></script>
+    <!-- Main application script -->
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/debug-motor-data.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app">
+        <!-- Loading State -->
+        <div v-if="loading" class="p-6 flex justify-center items-center min-h-screen">
+            <p class="text-lg">Loading robot data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="p-6 flex flex-col justify-center items-center min-h-screen">
+            <p class="text-lg text-red-600 mb-4" v-text="error"></p>
+            <button 
+                @click="fetchData" 
+                class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+                Retry
+            </button>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div v-else class="p-6 max-w-6xl mx-auto">
+            <!-- Header with Robot Selector -->
+            <div class="mb-6 flex items-center justify-between">
+                <h1 class="text-2xl font-bold">Robot Monitor Dashboard</h1>
+                <div class="flex items-center gap-4">
+                    <select
+                        v-model="selectedRobot"
+                        class="px-4 py-2 border rounded-lg"
+                    >
+                        <option v-for="robot in robotNames" :key="robot" :value="robot" v-text="robot"></option>
+                    </select>
+                    <button 
+                        @click="reloadConfig"
+                        class="px-3 py-2 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+                        title="Reload robot configuration"
+                    >
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Status Banner -->
+            <div v-if="configLoadTime" class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                <p class="text-blue-800">
+                    Configuration loaded at {{ configLoadTime }} • 
+                    {{ robotNames.length }} robots configured • 
+                    {{ motorEnabledRobots.length }} with motor capabilities
+                </p>
+            </div>
+
+            <!-- Compact Error Summary Banner -->
+            <div v-if="getAllActiveErrors.length > 0" class="mb-4">
+                <div class="bg-red-50 border border-red-300 rounded-lg p-3">
+                    <div class="flex items-center justify-between cursor-pointer" @click="errorSummaryExpanded = !errorSummaryExpanded">
+                        <div class="flex flex-col sm:flex-row sm:items-center">
+                            <div class="flex items-center mb-1 sm:mb-0">
+                                <svg class="h-5 w-5 mr-2 text-red-600 error-pulse flex-shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <h3 class="text-sm font-semibold text-red-800">
+                                    <span v-text="getAllActiveErrors.length"></span> Active Error<span v-if="getAllActiveErrors.length > 1">s</span>
+                                    on <span v-text="getRobotsWithErrors.length"></span> Robot<span v-if="getRobotsWithErrors.length > 1">s</span>
+                                </h3>
+                            </div>
+                            <div class="ml-7 sm:ml-4 flex items-center gap-2 text-xs">
+                                <span v-for="errorGroup in getGroupedErrors.slice(0, 3)" :key="errorGroup.code" 
+                                    class="relative px-3 py-1 bg-gray-100 text-gray-700 rounded-full border border-gray-200">
+                                    <span v-text="errorGroup.code" class="font-mono text-xs"></span>
+                                    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                                        <span v-text="errorGroup.robots.length"></span>
+                                    </span>
+                                </span>
+                                <span v-if="getGroupedErrors.length > 3" class="text-gray-500 text-xs">
+                                    +<span v-text="getGroupedErrors.length - 3"></span>
+                                </span>
+                            </div>
+                        </div>
+                        <svg :class="['h-4 w-4 text-gray-600 transform transition-transform flex-shrink-0', errorSummaryExpanded ? 'rotate-180' : '']" 
+                             xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    
+                    <!-- Expandable Details -->
+                    <div v-if="errorSummaryExpanded" class="mt-3 pt-3 border-t border-red-200">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <div v-for="errorGroup in getGroupedErrors" :key="errorGroup.code" 
+                                 class="text-xs p-2 rounded bg-white border border-red-200">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="font-semibold flex items-center gap-1">
+                                        <span class="text-gray-500">#</span><span v-text="errorGroup.code"></span>
+                                    </span>
+                                    <span class="flex items-center gap-1">
+                                        <span :class="[
+                                            'w-2 h-2 rounded-full', 
+                                            errorDefinitions[errorGroup.code]?.type === 'critical' ? 'bg-red-500' : 'bg-orange-500'
+                                        ]"></span>
+                                        <span class="text-xs text-gray-600" v-text="getErrorTypeName(errorGroup.code)"></span>
+                                    </span>
+                                </div>
+                                <p class="text-gray-700 mb-1" v-text="errorGroup.message"></p>
+                                <p class="text-gray-600">
+                                    Robots: <span class="font-medium" v-text="errorGroup.robots.join(', ')"></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Robot Grid for Mobile Only (shown after error banner) -->
+            <div class="w-full p-4 mb-6 bg-white rounded-lg shadow md:hidden">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Robot Status Overview</h3>
+                <div class="flex flex-wrap justify-center gap-2">
+                    <robot-indicator-component
+                        v-for="robot in robotNames"
+                        :key="robot + '-mobile'"
+                        :update-key="motorUpdateKey"
+                        :robot-name="robot"
+                        :is-selected="selectedRobot === robot"
+                        :is-online="robotData.pingStatus[robot]"
+                        :robot-status="robotData.robotStatus[robot]"
+                        @select-robot="selectedRobot = $event"
+                    ></robot-indicator-component>
+                </div>
+            </div>
+
+            <!-- Status Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <!-- Connection Status Card -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold">Connection Status</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div :class="['inline-block px-4 py-2 rounded-full font-semibold', 
+                                     robotData.pingStatus[selectedRobot] ? 
+                                     'bg-green-100 text-green-800' : 
+                                     'bg-red-100 text-red-800']"
+                             v-text="robotData.pingStatus[selectedRobot] ? 'Online' : 'Offline'">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Info Card -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold">System Info</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <p>Last Updated: <span v-text="lastUpdate"></span></p>
+                        <p>Update Interval: {{ systemConfig.update_interval || 5 }} seconds</p>
+                        <button 
+                            @click="refreshData"
+                            class="mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                        >
+                            Refresh Now
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Motor Status Card -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold">Motor Status</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <motor-data-component
+                            v-if="isMotorEnabled(selectedRobot)"
+                            :update-key="motorUpdateKey"
+                            :robot-name="selectedRobot"
+                            :motor-data="robotData.motorData"
+                            :is-online="robotData.pingStatus[selectedRobot]"
+                            :robot-status="robotData.robotStatus[selectedRobot]"
+                        ></motor-data-component>
+                        <div v-else class="text-gray-500 text-sm">
+                            <p>This robot does not have motor data capabilities.</p>
+                            <p class="mt-2 text-xs">To enable motor data, update config.yaml and set has_motors: true</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Robot Grid for Desktop Only (original position) -->
+            <div class="w-full p-4 mb-6 hidden md:block">
+                <div class="flex flex-wrap justify-center gap-2">
+                    <robot-indicator-component
+                        v-for="robot in robotNames"
+                        :key="robot + '-desktop'"
+                        :update-key="motorUpdateKey"
+                        :robot-name="robot"
+                        :is-selected="selectedRobot === robot"
+                        :is-online="robotData.pingStatus[robot]"
+                        :robot-status="robotData.robotStatus[robot]"
+                        @select-robot="selectedRobot = $event"
+                    ></robot-indicator-component>
+                </div>
+            </div>
+            
+            <!-- Status Data -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Robot Status Data -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold">Robot Status</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <pre class="whitespace-pre-wrap" v-text="JSON.stringify(robotData.robotStatus[selectedRobot] || {}, null, 2)"></pre>
+                    </div>
+                </div>
+
+                <!-- Cleaning Device Status Data -->
+                <div class="bg-white shadow rounded-lg">
+                    <div class="px-6 py-4 border-b">
+                        <h2 class="text-lg font-semibold">Cleaning Device Status</h2>
+                    </div>
+                    <div class="px-6 py-4">
+                        <pre class="whitespace-pre-wrap" v-text="JSON.stringify(robotData.cleaningDeviceStatus[selectedRobot] || {}, null, 2)"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Motor Data Detailed Tab -->
+            <div class="mt-6" v-if="robotData.pingStatus[selectedRobot] && motorDataService.robotHasMotorData(selectedRobot) && isMotorEnabled(selectedRobot)">
+                <motor-detail-component
+                    :update-key="motorUpdateKey"
+                    :robot-name="selectedRobot"
+                    :motor-data="robotData.motorData"
+                    :is-online="robotData.pingStatus[selectedRobot]"
+                ></motor-detail-component>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch, onMounted, onBeforeUnmount } = Vue;
+        
+        const app = createApp({
+            components: {
+                'motor-data-component': MotorDataComponent,
+                'motor-detail-component': MotorDetailComponent,
+                'robot-indicator-component': RobotIndicatorComponent
+            },
+            
+            setup() {
+                // State
+                const loading = ref(true);
+                const error = ref(null);
+                const selectedRobot = ref('');
+                const lastUpdate = ref('N/A');
+                const errorSummaryExpanded = ref(false);
+                const robotData = ref({
+                    pingStatus: {},
+                    robotStatus: {},
+                    cleaningDeviceStatus: {},
+                    motorData: {}
+                });
+                
+                // Worker status
+                const workerActive = ref(!!window.Worker);
+
+                // Dynamic robot configuration
+                const robotNames = ref([]);
+                const motorEnabledRobots = ref([]);
+                const systemConfig = ref({});
+                const configLoadTime = ref(null);
+                
+                // Motor update key for optimized rendering
+                let motorUpdateKey = ref(0);
+                let dataCleanup = null;
+                
+                // Error code definitions
+                const errorDefinitions = {
+                    '1201': { message: 'Motor error', type: 'warning' },
+                    '1412': { message: 'Overcurrent - Component 1', type: 'warning' },
+                    '1413': { message: 'Overcurrent - Component 2', type: 'warning' },
+                    '1414': { message: 'Overcurrent - Component 3', type: 'warning' },
+                    '1415': { message: 'Overcurrent - Component 4', type: 'warning' },
+                    '1416': { message: 'Roller overtemperature', type: 'critical' },
+                    '1417': { message: 'System overtemperature', type: 'critical' },
+                    '3605': { message: 'Module MCU disconnected', type: 'critical' }
+                };
+                
+                // Load robot configuration from API
+                const loadRobotConfig = async () => {
+                    try {
+                        const response = await fetch('/api/config');
+                        if (!response.ok) {
+                            throw new Error('Failed to load robot configuration');
+                        }
+                        
+                        const config = await response.json();
+                        
+                        // Extract robot names
+                        robotNames.value = config.robots.map(r => r.name);
+                        
+                        // Extract motor-enabled robots
+                        motorEnabledRobots.value = config.robots
+                            .filter(r => r.has_motors)
+                            .map(r => r.name);
+                            
+                        // Store system config
+                        systemConfig.value = config.system || {};
+                        
+                        // Set initial selected robot
+                        if (!selectedRobot.value && robotNames.value.length > 0) {
+                            selectedRobot.value = robotNames.value[0];
+                        }
+                        
+                        configLoadTime.value = new Date().toLocaleTimeString();
+                        
+                        console.log(`Loaded ${robotNames.value.length} robots, ${motorEnabledRobots.value.length} with motors`);
+                        
+                    } catch (err) {
+                        console.error('Error loading robot configuration:', err);
+                        
+                        // Fallback to hardcoded list if config fails
+                        robotNames.value = ['base1', 'base2', 'base3', 'base4', 'base5', 'base6',
+                                          'base7', 'base8', 'base9', 'base10', 'base11', 'base12',
+                                          'base-b2', 'base-b3'];
+                        motorEnabledRobots.value = ['base6', 'base7', 'base8', 'base11'];
+                        
+                        if (!selectedRobot.value) {
+                            selectedRobot.value = 'base1';
+                        }
+                        
+                        console.log('Using fallback robot configuration');
+                    }
+                };
+                
+                // Check if a robot has motor capabilities
+                const isMotorEnabled = (robotName) => {
+                    return motorEnabledRobots.value.includes(robotName);
+                };
+                
+                // Reload configuration
+                const reloadConfig = async () => {
+                    loading.value = true;
+                    await loadRobotConfig();
+                    await fetchGeneralData();
+                    loading.value = false;
+                };
+                
+                // Computed properties for error handling
+                const getAllActiveErrors = computed(() => {
+                    const allErrors = [];
+                    
+                    robotNames.value.forEach(robot => {
+                        const status = robotData.value.robotStatus[robot];
+                        if (status && status.watch_doggo_error_rm && robotData.value.pingStatus[robot]) {
+                            status.watch_doggo_error_rm.forEach(error => {
+                                allErrors.push({
+                                    robot: robot,
+                                    code: error.error_code,
+                                    message: error.rm_message || errorDefinitions[error.error_code]?.message || 'Unknown error'
+                                });
+                            });
+                        }
+                    });
+                    
+                    return allErrors;
+                });
+                
+                const getRobotsWithErrors = computed(() => {
+                    const robotsSet = new Set();
+                    getAllActiveErrors.value.forEach(error => {
+                        robotsSet.add(error.robot);
+                    });
+                    return Array.from(robotsSet);
+                });
+                
+                const getGroupedErrors = computed(() => {
+                    const grouped = {};
+                    
+                    getAllActiveErrors.value.forEach(error => {
+                        if (!grouped[error.code]) {
+                            grouped[error.code] = {
+                                code: error.code,
+                                message: errorDefinitions[error.code]?.message || error.message,
+                                robots: [],
+                                count: 0
+                            };
+                        }
+                        
+                        if (!grouped[error.code].robots.includes(error.robot)) {
+                            grouped[error.code].robots.push(error.robot);
+                        }
+                        grouped[error.code].count++;
+                    });
+                    
+                    // Sort by severity (critical first) then by count
+                    return Object.values(grouped).sort((a, b) => {
+                        const aType = errorDefinitions[a.code]?.type || 'warning';
+                        const bType = errorDefinitions[b.code]?.type || 'warning';
+                        
+                        if (aType === 'critical' && bType !== 'critical') return -1;
+                        if (bType === 'critical' && aType !== 'critical') return 1;
+                        
+                        return b.count - a.count;
+                    });
+                });
+                
+                // Helper methods for error display
+                const getErrorSeverityClass = (errorCode) => {
+                    const type = errorDefinitions[errorCode]?.type || 'warning';
+                    return type === 'critical' ? 'border-red-400 bg-red-100' : 'border-orange-400 bg-orange-100';
+                };
+
+                const getErrorBadgeClass = (errorCode) => {
+                    // Return empty string since we're not using colored badges anymore
+                    return '';
+                };
+                                
+                const getErrorTypeName = (errorCode) => {
+                    const type = errorDefinitions[errorCode]?.type || 'warning';
+                    return type === 'critical' ? 'Critical' : 'Warning';
+                };
+                
+                // Refresh function for manual refresh
+                const refreshData = () => {
+                    // If using worker, send a message to force immediate poll
+                    if (workerActive.value && window.motorDataWorker) {
+                        window.motorDataWorker.postMessage({ command: 'poll' });
+                    }
+                    
+                    // Also refresh general data
+                    fetchGeneralData();
+                };
+                
+                // Function to fetch general data
+                const fetchGeneralData = async () => {
+                    try {
+                        const response = await fetch(`/api/robot-status?type=general&t=${Date.now()}`);
+                        
+                        if (!response.ok) {
+                            throw new Error(`Server responded with status: ${response.status}`);
+                        }
+                        
+                        const data = await response.json();
+                        
+                        // Update all except motor data (which comes from worker)
+                        robotData.value = {
+                            ...robotData.value, // Keep motor data from worker
+                            pingStatus: data.ping_status || robotData.value.pingStatus || {},
+                            robotStatus: data.robot_status || robotData.value.robotStatus || {},
+                            cleaningDeviceStatus: data.cleaning_device_status || robotData.value.cleaningDeviceStatus || {}
+                        };
+                        
+                        lastUpdate.value = new Date().toLocaleString();
+                        error.value = null;
+                        loading.value = false;
+                    } catch (err) {
+                        console.error('Error fetching general data:', err);
+                        error.value = `Failed to load data: ${err.message}`;
+                        loading.value = false;
+                    }
+                };
+                
+                onMounted(async () => {
+                    // Load robot configuration first
+                    await loadRobotConfig();
+                    
+                    // Check if Web Workers are supported
+                    if (window.Worker) {
+                        console.log('Web Workers are supported - using threaded motor data polling');
+                        workerActive.value = true;
+                        
+                        // Use setupMotorDataWorker from main.js
+                        const { cleanup, motorUpdateKey: updateKey } = setupMotorDataWorker(
+                            robotData, lastUpdate, error, loading
+                        );
+                        
+                        // Store for cleanup
+                        dataCleanup = cleanup;
+                        // Assign the update key to our local ref
+                        motorUpdateKey = updateKey;
+                    } else {
+                        console.log('Web Workers are not supported - using main thread polling');
+                        workerActive.value = false;
+                        
+                        // Fall back to the setupMotorDataUpdateRate function
+                        fetchGeneralData();
+                        
+                        // Set up intervals
+                        const generalInterval = setInterval(fetchGeneralData, systemConfig.value.update_interval * 1000 || 5000);
+                        const motorInterval = setInterval(async () => {
+                            try {
+                                const response = await fetch(`/api/robot-status?type=motor&t=${Date.now()}`);
+                                
+                                if (!response.ok) return;
+                                
+                                const data = await response.json();
+                                
+                                if (data.motor_data) {
+                                    robotData.value.motorData = data.motor_data;
+                                    motorUpdateKey.value++;
+                                }
+                            } catch (err) {
+                                console.warn('Error fetching motor data:', err);
+                            }
+                        }, systemConfig.value.motor_update_interval * 1000 || 1000);
+                        
+                        // Store cleanup function
+                        dataCleanup = () => {
+                            clearInterval(generalInterval);
+                            clearInterval(motorInterval);
+                        };
+                    }
+                    
+                    // Clean up on unmount
+                    onBeforeUnmount(() => {
+                        if (dataCleanup) {
+                            dataCleanup();
+                        }
+                    });
+                });
+
+                return {
+                    // State
+                    loading,
+                    error,
+                    selectedRobot,
+                    lastUpdate,
+                    robotData,
+                    robotNames,
+                    motorEnabledRobots,
+                    systemConfig,
+                    configLoadTime,
+                    motorUpdateKey,
+                    workerActive,
+                    errorSummaryExpanded,
+                    motorDataService: MotorDataService,
+                    
+                    // Methods
+                    refreshData,
+                    fetchData: fetchGeneralData, // FIX: Add missing fetchData method
+                    isMotorEnabled,
+                    reloadConfig,
+                    
+                    // Error handling
+                    getAllActiveErrors,
+                    getRobotsWithErrors,
+                    getGroupedErrors,
+                    getErrorSeverityClass,
+                    getErrorBadgeClass,
+                    getErrorTypeName,
+                    errorDefinitions // FIX: Expose errorDefinitions to template
+                };
+            },
+            
+            // Provide the motor data service to all components
+            provide() {
+                return {
+                    motorDataService: MotorDataService
+                };
+            }
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>

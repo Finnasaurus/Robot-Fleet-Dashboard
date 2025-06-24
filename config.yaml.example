@@ -1,0 +1,9 @@
+flexa:
+  robot1:
+    name: "robot1"
+    ip: "192.168.1.100"
+    has_motors: true
+  robot2:
+    name: "robot2"
+    ip: "192.168.1.101"
+    has_motors: false

@@ -1,0 +1,278 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+logs/
+ping_checker.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Production configs
+config.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ===== DEVELOPMENT BLOAT REMOVAL =====
+
+# Robot data files (contains production IPs and network info)
+sample_robots.csv
+robots.csv
+production_robots.csv
+*_production.csv
+fleet_config.*
+robot_list.*
+
+# Backup files
+*.bak
+*.backup
+*backup*
+web.py.bak-*
+motorReader.py.bak-*
+*.bak-*
+
+# Development/Debug Scripts (one-time use tools)
+debug_motor_parse.py
+fix-everything.py
+migrate_to_config.py
+compileCode.py
+validate_config.py
+direct_motor_fix.py
+flexaGUI.desktop
+flexaGUI.sh
+implement.sh
+inject_motor_data.py
+debug-motor-data.js
+
+# ROS build artifacts (but keep .msg files)
+build/
+devel/
+install/
+*.bag
+
+# Old/Legacy Files
+README_OLD.html
+README_OLD.md
+*_OLD.*
+*_old.*
+index_old.html
+web_old.py
+deliverables.txt
+
+# Test and Temporary Files
+test_*.py
+*_test.py
+temp_*.py
+temporary_*.py
+debug_*.txt
+debug_*.log
+motor_debug_*.txt
+test_data_*.csv
+temp_data_*.csv
+
+# Development Artifacts
+start_dashboard.sh
+startup.sh
+setup.sh
+install.sh
+deploy.sh
+build.sh
+
+# SSH and credentials
+*.pem
+*.key
+id_rsa*
+ssh_config
+known_hosts
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Development IDE and tools
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.virtualenv/
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Documentation builds
+docs/_build/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+# ===== DEVELOPMENT BLOAT REMOVAL =====
+
+# Robot data files (contains production IPs and network info)
+sample_robots.csv
+robots.csv
+production_robots.csv
+*_production.csv
+fleet_config.*
+robot_list.*
+
+# Backup files
+*.bak
+*.backup
+*backup*
+web.py.bak-*
+motorReader.py.bak-*
+*.bak-*
+
+# Development/Debug Scripts (one-time use tools)
+debug_motor_parse.py
+fix-everything.py
+migrate_to_config.py
+compileCode.py
+validate_config.py
+direct_motor_fix.py
+
+# Legacy documentation files
+README_OLD.html
+README_OLD.md
+README_DASHBOARD.md
+*_OLD.*
+*_old.*
+
+# Test and Temporary Files
+test_*.py
+*_test.py
+temp_*.py
+temporary_*.py
+debug_*.txt
+debug_*.log
+motor_debug_*.txt
+test_data_*.csv
+temp_data_*.csv
+
+# Development Artifacts
+start_dashboard.sh
+startup.sh
+setup.sh
+install.sh
+deploy.sh
+build.sh
+
+# ROS build artifacts (but keep .msg files)
+build/
+devel/
+install/
+*.bag
+
+# SSH and credentials
+*.pem
+*.key
+id_rsa*
+ssh_config
+known_hosts
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

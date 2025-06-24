@@ -1,0 +1,4 @@
+bool read_error
+bool write_error
+string left_motor_error_code
+string right_motor_error_code
