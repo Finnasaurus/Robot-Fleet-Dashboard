@@ -61,6 +61,45 @@
         .z-20 {
             z-index: 20;
         }
+        
+        /* New animations for status card */
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .animate-spin {
+            animation: spin 2s linear infinite;
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        /* Gradient animation for charging */
+        @keyframes shimmer {
+            0% {
+                background-position: -200% center;
+            }
+            100% {
+                background-position: 200% center;
+            }
+        }
+        
+        .charging-shimmer {
+            background: linear-gradient(
+                to right,
+                transparent 0%,
+                rgba(255, 255, 255, 0.3) 50%,
+                transparent 100%
+            );
+            background-size: 200% auto;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
     </style>
     <!-- Component Scripts - Load before main.js -->
     <script src="/static/js/services/MotorDataService.js"></script>
@@ -216,20 +255,133 @@
                     </div>
                 </div>
 
-                <!-- System Info Card -->
-                <div class="bg-white shadow rounded-lg">
-                    <div class="px-6 py-4 border-b">
-                        <h2 class="text-lg font-semibold">System Info</h2>
+                <!-- Robot Status Overview Card -->
+                <div class="bg-white shadow rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-blue-100">
+                        <h2 class="text-lg font-semibold flex items-center gap-2">
+                            <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                            </svg>
+                            {{ selectedRobot }} Status
+                        </h2>
                     </div>
                     <div class="px-6 py-4">
-                        <p>Last Updated: <span v-text="lastUpdate"></span></p>
-                        <p>Update Interval: {{ systemConfig.update_interval || 5 }} seconds</p>
-                        <button 
-                            @click="refreshData"
-                            class="mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
-                        >
-                            Refresh Now
-                        </button>
+                        <!-- Main Status Display -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <!-- Status Icon with Animation -->
+                                <div :class="['p-3 rounded-full', getStatusIconBackground()]">
+                                    <svg v-if="getRobotWorkingStatus() === 'cleaning'" 
+                                         :class="['h-8 w-8', getStatusIconColor(), 'animate-spin']" 
+                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                                    </svg>
+                                    <svg v-else-if="getRobotWorkingStatus() === 'charging'" 
+                                         :class="['h-8 w-8', getStatusIconColor(), 'animate-pulse']" 
+                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                                    </svg>
+                                    <svg v-else-if="getRobotWorkingStatus() === 'navigation'" 
+                                         :class="['h-8 w-8', getStatusIconColor()]" 
+                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                                    </svg>
+                                    <svg v-else-if="!robotData.pingStatus[selectedRobot]" 
+                                         :class="['h-8 w-8', getStatusIconColor()]" 
+                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l6.921 6.922c.05.062.105.118.168.167l6.91 6.911a1 1 0 001.415-1.414l-.675-.675a9.001 9.001 0 00-.668-11.982A1 1 0 1014.95 5.05a7.002 7.002 0 01.657 9.143l-1.435-1.435a5.002 5.002 0 00-.596-6.342A1 1 0 0012.18 7.8l-.734.733-7.75-7.75zM5.05 14.95a9.003 9.003 0 01-.668-11.982A1 1 0 102.95 4.383a7.002 7.002 0 00.657 9.144l1.443-1.443z" clip-rule="evenodd" />
+                                    </svg>
+                                    <svg v-else 
+                                         :class="['h-8 w-8', getStatusIconColor()]" 
+                                         xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                
+                                <!-- Status Text -->
+                                <div>
+                                    <p :class="['text-2xl font-bold capitalize', getStatusTextColor()]">
+                                        {{ getStatusDisplayText() }}
+                                    </p>
+                                    <p class="text-sm text-gray-500">
+                                        <span v-if="robotData.pingStatus[selectedRobot]">Online</span>
+                                        <span v-else>Offline</span>
+                                        <span v-if="robotData.robotStatus[selectedRobot]?.soft_estop_engaged" class="text-red-600 font-semibold"> • E-Stop Active</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <!-- Refresh Button -->
+                            <button 
+                                @click="refreshData"
+                                :class="['p-2 rounded-full transition-all hover:scale-110', robotData.pingStatus[selectedRobot] ? 'bg-blue-100 hover:bg-blue-200 text-blue-600' : 'bg-gray-100 hover:bg-gray-200 text-gray-600']"
+                                title="Refresh data"
+                            >
+                                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- Battery Level -->
+                        <div v-if="robotData.pingStatus[selectedRobot] && robotData.robotStatus[selectedRobot]?.battery_soc !== undefined" class="mb-4">
+                            <div class="flex items-center justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">Battery Level</span>
+                                <span :class="['text-sm font-bold', getBatteryTextColor()]">
+                                    {{ robotData.robotStatus[selectedRobot].battery_soc }}%
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                <div 
+                                    :class="['h-full transition-all duration-500 relative', getBatteryBarColor()]" 
+                                    :style="{width: robotData.robotStatus[selectedRobot].battery_soc + '%'}"
+                                >
+                                    <div v-if="getRobotWorkingStatus() === 'charging'" class="absolute inset-0 charging-shimmer"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Stats Grid -->
+                        <div v-if="robotData.pingStatus[selectedRobot]" class="grid grid-cols-2 gap-3 mb-4">
+                            <!-- Cleaning Time -->
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs text-gray-500 mb-1">Cleaning Time</p>
+                                <p class="text-lg font-semibold text-gray-800">
+                                    {{ formatCleaningTime(robotData.robotStatus[selectedRobot]?.cleaning_time_s) }}
+                                </p>
+                            </div>
+                            
+                            <!-- Area Covered -->
+                            <div class="bg-gray-50 rounded-lg p-3">
+                                <p class="text-xs text-gray-500 mb-1">Area Covered</p>
+                                <p class="text-lg font-semibold text-gray-800">
+                                    {{ formatArea(robotData.robotStatus[selectedRobot]?.area_covered_m2) }}
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Error Alert -->
+                        <div v-if="robotData.pingStatus[selectedRobot] && robotData.robotStatus[selectedRobot]?.watch_doggo_error_rm?.length > 0" 
+                             class="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                            <div class="flex items-start gap-2">
+                                <svg class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <div class="flex-1">
+                                    <p class="text-sm font-semibold text-red-800 mb-1">
+                                        {{ robotData.robotStatus[selectedRobot].watch_doggo_error_rm.length }} Active Error<span v-if="robotData.robotStatus[selectedRobot].watch_doggo_error_rm.length > 1">s</span>
+                                    </p>
+                                    <p class="text-xs text-red-700">
+                                        {{ robotData.robotStatus[selectedRobot].watch_doggo_error_rm.map(e => e.error_code).join(', ') }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Last Update Info -->
+                        <div class="text-xs text-gray-500 border-t pt-2">
+                            Last updated: {{ lastUpdate }}
+                        </div>
                     </div>
                 </div>
 
@@ -302,6 +454,48 @@
                     :motor-data="robotData.motorData"
                     :is-online="robotData.pingStatus[selectedRobot]"
                 ></motor-detail-component>
+            </div>
+            
+            <!-- Status Legend -->
+            <div class="mt-6 bg-white shadow rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-gray-700 mb-3">Status Legend</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-green-500 rounded"></div>
+                        <span>Cleaning</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-blue-900 rounded"></div>
+                        <span>Charging/Idle</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-yellow-500 rounded"></div>
+                        <span>Other Status</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-gray-400 rounded"></div>
+                        <span>Offline</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-red-500 rounded"></div>
+                        <span>E-Stop Active</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-blue-300 rounded border-4 border-blue-300"></div>
+                        <span>Has Motor Data</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-yellow-300 rounded border-4 border-yellow-300"></div>
+                        <span>Motor Data Pending</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 bg-gray-300 rounded relative">
+                            <span class="absolute top-0 right-0 transform translate-x-1/4 -translate-y-1/4 text-xs font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-lg text-white"
+                                  style="background-color: #f97316;">3</span>
+                        </div>
+                        <span>Has Errors</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -490,6 +684,98 @@
                     return type === 'critical' ? 'Critical' : 'Warning';
                 };
                 
+                // New helper methods for status display
+                const getRobotWorkingStatus = () => {
+                    const status = robotData.value.robotStatus[selectedRobot.value];
+                    if (!status) return 'unknown';
+                    return (status.working_status || '').toLowerCase();
+                };
+                
+                const getStatusDisplayText = () => {
+                    if (!robotData.value.pingStatus[selectedRobot.value]) {
+                        return 'Offline';
+                    }
+                    
+                    const status = robotData.value.robotStatus[selectedRobot.value];
+                    if (!status) return 'Unknown';
+                    
+                    if (status.soft_estop_engaged) {
+                        return 'E-Stop Active';
+                    }
+                    
+                    const workingStatus = getRobotWorkingStatus();
+                    if (workingStatus === 'charging') return 'Charging';
+                    if (workingStatus === 'cleaning') return 'Cleaning';
+                    if (workingStatus === 'navigation') return 'Navigating';
+                    if (workingStatus === 'idle') return 'Idle';
+                    
+                    return workingStatus || 'Unknown';
+                };
+                
+                const getStatusIconBackground = () => {
+                    const status = getRobotWorkingStatus();
+                    if (!robotData.value.pingStatus[selectedRobot.value]) return 'bg-gray-100';
+                    if (robotData.value.robotStatus[selectedRobot.value]?.soft_estop_engaged) return 'bg-red-100';
+                    if (status === 'cleaning') return 'bg-green-100';
+                    if (status === 'charging') return 'bg-blue-100';
+                    if (status === 'navigation') return 'bg-purple-100';
+                    if (status === 'idle') return 'bg-gray-100';
+                    return 'bg-gray-100';
+                };
+                
+                const getStatusIconColor = () => {
+                    const status = getRobotWorkingStatus();
+                    if (!robotData.value.pingStatus[selectedRobot.value]) return 'text-gray-400';
+                    if (robotData.value.robotStatus[selectedRobot.value]?.soft_estop_engaged) return 'text-red-600';
+                    if (status === 'cleaning') return 'text-green-600';
+                    if (status === 'charging') return 'text-blue-600';
+                    if (status === 'navigation') return 'text-purple-600';
+                    if (status === 'idle') return 'text-gray-600';
+                    return 'text-gray-600';
+                };
+                
+                const getStatusTextColor = () => {
+                    const status = getRobotWorkingStatus();
+                    if (!robotData.value.pingStatus[selectedRobot.value]) return 'text-gray-500';
+                    if (robotData.value.robotStatus[selectedRobot.value]?.soft_estop_engaged) return 'text-red-600';
+                    if (status === 'cleaning') return 'text-green-600';
+                    if (status === 'charging') return 'text-blue-600';
+                    if (status === 'navigation') return 'text-purple-600';
+                    if (status === 'idle') return 'text-gray-700';
+                    return 'text-gray-700';
+                };
+                
+                const getBatteryBarColor = () => {
+                    const level = robotData.value.robotStatus[selectedRobot.value]?.battery_soc;
+                    if (level === undefined) return 'bg-gray-400';
+                    if (level < 20) return 'bg-red-500';
+                    if (level < 50) return 'bg-yellow-500';
+                    return 'bg-green-500';
+                };
+                
+                const getBatteryTextColor = () => {
+                    const level = robotData.value.robotStatus[selectedRobot.value]?.battery_soc;
+                    if (level === undefined) return 'text-gray-600';
+                    if (level < 20) return 'text-red-600';
+                    if (level < 50) return 'text-yellow-600';
+                    return 'text-green-600';
+                };
+                
+                const formatCleaningTime = (seconds) => {
+                    if (!seconds) return '0m';
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    if (hours > 0) {
+                        return `${hours}h ${minutes}m`;
+                    }
+                    return `${minutes}m`;
+                };
+                
+                const formatArea = (area) => {
+                    if (!area) return '0 m²';
+                    return `${area.toFixed(1)} m²`;
+                };
+                
                 // Refresh function for manual refresh
                 const refreshData = () => {
                     // If using worker, send a message to force immediate poll
@@ -618,7 +904,18 @@
                     getErrorSeverityClass,
                     getErrorBadgeClass,
                     getErrorTypeName,
-                    errorDefinitions // FIX: Expose errorDefinitions to template
+                    errorDefinitions, // FIX: Expose errorDefinitions to template
+                    
+                    // Status display methods
+                    getRobotWorkingStatus,
+                    getStatusDisplayText,
+                    getStatusIconBackground,
+                    getStatusIconColor,
+                    getStatusTextColor,
+                    getBatteryBarColor,
+                    getBatteryTextColor,
+                    formatCleaningTime,
+                    formatArea
                 };
             },
             
