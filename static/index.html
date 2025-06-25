@@ -61,6 +61,15 @@
         .z-20 {
             z-index: 20;
         }
+        .z-30 {
+            z-index: 30;
+        }
+        .z-40 {
+            z-index: 40;
+        }
+        .z-50 {
+            z-index: 50;
+        }
         
         /* New animations for status card */
         @keyframes spin {
@@ -100,6 +109,212 @@
             background-size: 200% auto;
             animation: shimmer 1.5s ease-in-out infinite;
         }
+
+        /* Control Drawer Styles - MAIN INTERFACE (sliding drawer) */
+        .control-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 400px;
+            background: white;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            box-shadow: -10px 0 25px rgba(0, 0, 0, 0.15);
+            overflow-y: auto;
+        }
+
+        .control-drawer.open {
+            transform: translateX(0);
+        }
+
+        .drawer-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+
+        .drawer-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .drawer-toggle-btn {
+            position: fixed;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            z-index: 998;
+            background: #3B82F6;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .drawer-toggle-btn:hover {
+            background: #2563EB;
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.6);
+        }
+
+        .drawer-toggle-btn.open {
+            background: #6B7280;
+            right: 420px;
+        }
+
+        /* Hide drawer on mobile and small tablets */
+        @media (max-width: 1024px) {
+            .drawer-toggle-btn,
+            .control-drawer,
+            .drawer-overlay {
+                display: none;
+            }
+        }
+
+        /* Scrollbar styling for drawer */
+        .control-drawer::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .control-drawer::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        .control-drawer::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        .control-drawer::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Drawer animations */
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .drawer-enter {
+            animation: slideInRight 0.3s ease-out;
+        }
+
+        /* Quick action buttons with better UX */
+        .drawer-btn {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drawer-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .drawer-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .drawer-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .drawer-btn:hover::before {
+            left: 100%;
+        }
+
+        /* Quick toolbar styles */
+        .quick-toolbar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 997;
+            display: flex;
+            gap: 8px;
+            background: white;
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .quick-toolbar.drawer-open {
+            right: 420px;
+        }
+
+        .quick-btn {
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .quick-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .quick-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Hide quick toolbar on mobile */
+        @media (max-width: 1024px) {
+            .quick-toolbar {
+                display: none;
+            }
+        }
+
+        /* FUTURE: Floating Controls Style (for user preference toggle) */
+        /*
+        .floating-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none; // Hidden for now, will be user preference
+        }
+        
+        .floating-controls.active {
+            display: block;
+        }
+        
+        .floating-control-panel {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            padding: 16px;
+            min-width: 280px;
+        }
+        */
     </style>
     <!-- Component Scripts - Load before main.js -->
     <script src="/static/js/services/MotorDataService.js"></script>
@@ -150,6 +365,17 @@
                             <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
                         </svg>
                     </button>
+                    <!-- FUTURE: UI Preference Toggle (commented out for now)
+                    <button 
+                        @click="toggleUIMode"
+                        class="px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                        title="Switch UI Mode"
+                    >
+                        <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    -->
                 </div>
             </div>
 
@@ -157,8 +383,8 @@
             <div v-if="configLoadTime && !configBannerDismissed" class="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
                 <div class="flex items-center justify-between">
                     <p class="text-blue-800">
-                        Configuration loaded at {{ configLoadTime }} • 
-                        {{ robotNames.length }} robots configured • 
+                        Configuration loaded at {{ configLoadTime }} &middot; 
+                        {{ robotNames.length }} robots configured &middot; 
                         {{ motorEnabledRobots.length }} with motor capabilities
                     </p>
                     <button 
@@ -318,7 +544,7 @@
                                     <p class="text-sm text-gray-500">
                                         <span v-if="robotData.pingStatus[selectedRobot]">Online</span>
                                         <span v-else>Offline</span>
-                                        <span v-if="robotData.robotStatus[selectedRobot]?.soft_estop_engaged" class="text-red-600 font-semibold"> • E-Stop Active</span>
+                                        <span v-if="robotData.robotStatus[selectedRobot]?.soft_estop_engaged" class="text-red-600 font-semibold"> &middot; E-Stop Active</span>
                                     </p>
                                 </div>
                             </div>
@@ -468,8 +694,8 @@
                 ></motor-detail-component>
             </div>
 
-            <!-- Robot Control Panel -->
-            <div class="mt-6">
+            <!-- Robot Control Panel (kept at bottom for mobile/tablet) -->
+            <div class="mt-6 lg:hidden">
                 <robot-control-component
                     :robot-name="selectedRobot"
                     :is-online="robotData.pingStatus[selectedRobot]"
@@ -521,6 +747,317 @@
                 </div>
             </div>
         </div>
+
+        <!-- MAIN UI: Quick Toolbar (Desktop Only) - Sliding Drawer Style -->
+        <div class="quick-toolbar" :class="{ 'drawer-open': drawerOpen }" v-if="!loading && !error">
+            <button
+                @click="quickCommand('stop')"
+                :disabled="!getCanControl()"
+                :class="[
+                    'quick-btn',
+                    getCanControl()
+                        ? 'bg-red-500 hover:bg-red-600 text-white' 
+                        : 'bg-gray-100 text-gray-400'
+                ]"
+                title="Emergency Stop"
+            >
+                Stop
+            </button>
+            
+            <button
+                @click="quickCommand('pause')"
+                :disabled="!getCanControl()"
+                :class="[
+                    'quick-btn',
+                    getCanControl()
+                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
+                        : 'bg-gray-100 text-gray-400'
+                ]"
+                title="Pause Robot"
+            >
+                Pause
+            </button>
+            
+            <button
+                @click="quickCommand('resume')"
+                :disabled="!getCanControl()"
+                :class="[
+                    'quick-btn',
+                    getCanControl()
+                        ? 'bg-green-500 hover:bg-green-600 text-white' 
+                        : 'bg-gray-100 text-gray-400'
+                ]"
+                title="Resume Robot"
+            >
+                Resume
+            </button>
+        </div>
+
+        <!-- MAIN UI: Drawer Toggle Button (Desktop Only) -->
+        <button 
+            class="drawer-toggle-btn" 
+            :class="{ open: drawerOpen }"
+            @click="toggleDrawer"
+            v-if="!loading && !error"
+            title="Open Robot Controls"
+        >
+            <svg v-if="!drawerOpen" class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+            </svg>
+            <svg v-else class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+        </button>
+
+        <!-- MAIN UI: Drawer Overlay -->
+        <div class="drawer-overlay" :class="{ open: drawerOpen }" @click="closeDrawer"></div>
+
+        <!-- MAIN UI: Control Drawer (Desktop Only) -->
+        <div class="control-drawer" :class="{ open: drawerOpen }">
+            <!-- Drawer Header -->
+            <div class="sticky top-0 bg-white border-b border-gray-200 p-4 z-10">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                        <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
+                        </svg>
+                        {{ selectedRobot }} Controls
+                    </h2>
+                    <button 
+                        @click="closeDrawer"
+                        class="p-1 hover:bg-gray-100 rounded"
+                        title="Close controls"
+                    >
+                        <svg class="h-5 w-5 text-gray-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Status Badge -->
+                <div class="mt-2 flex items-center gap-2">
+                    <span :class="['px-2 py-1 text-xs font-medium rounded-full text-white', getQuickStatusBadgeClass()]">
+                        {{ getQuickStatus() }}
+                    </span>
+                    <span v-if="robotData.robotStatus[selectedRobot]?.battery_soc !== undefined" class="text-sm text-gray-600">
+                        Battery: {{ robotData.robotStatus[selectedRobot].battery_soc }}%
+                    </span>
+                </div>
+            </div>
+
+            <!-- Drawer Content -->
+            <div class="p-4">
+                <!-- Quick Status Alerts -->
+                <div v-if="!robotData.pingStatus[selectedRobot]" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                    Robot is offline - controls disabled
+                </div>
+                
+                <div v-if="robotData.robotStatus[selectedRobot]?.soft_estop_engaged" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                    E-Stop is engaged
+                </div>
+                
+                <div v-if="robotData.robotStatus[selectedRobot]?.watch_doggo_error_rm?.length > 0" class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+                    Robot has {{ robotData.robotStatus[selectedRobot].watch_doggo_error_rm.length }} active error<span v-if="robotData.robotStatus[selectedRobot].watch_doggo_error_rm.length > 1">s</span>
+                </div>
+
+                <!-- Emergency Controls -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Emergency Controls</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            @click="quickCommand('reset_soft_estop')"
+                            :disabled="!getCanControl() || !robotData.robotStatus[selectedRobot]?.soft_estop_engaged"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                robotData.robotStatus[selectedRobot]?.soft_estop_engaged && getCanControl()
+                                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Reset E-Stop
+                        </button>
+                        
+                        <button
+                            @click="quickCommand('stop')"
+                            :disabled="!getCanControl()"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl()
+                                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Stop Robot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Controls -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Navigation</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            @click="quickCommand('pause')"
+                            :disabled="!getCanControl()"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl()
+                                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Pause
+                        </button>
+                        
+                        <button
+                            @click="quickCommand('resume')"
+                            :disabled="!getCanControl()"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl()
+                                    ? 'bg-green-500 hover:bg-green-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Resume
+                        </button>
+                        
+                        <button
+                            @click="quickCommand('navigate_back_to_dock')"
+                            :disabled="!getCanControl()"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors col-span-2',
+                                getCanControl()
+                                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Go to Dock
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Charging Controls -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Charging</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            @click="quickCommand('start_charging')"
+                            :disabled="!getCanControl() || robotData.robotStatus[selectedRobot]?.is_charging"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl() && !robotData.robotStatus[selectedRobot]?.is_charging
+                                    ? 'bg-blue-500 hover:bg-blue-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Start Charging
+                        </button>
+                        
+                        <button
+                            @click="quickCommand('stop_charging')"
+                            :disabled="!getCanControl() || !robotData.robotStatus[selectedRobot]?.is_charging"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl() && robotData.robotStatus[selectedRobot]?.is_charging
+                                    ? 'bg-orange-500 hover:bg-orange-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Stop Charging
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Docking Controls -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Docking</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button
+                            @click="quickCommand('docking')"
+                            :disabled="!getCanControl()"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl()
+                                    ? 'bg-purple-500 hover:bg-purple-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Dock Robot
+                        </button>
+                        
+                        <button
+                            @click="quickCommand('undock')"
+                            :disabled="!getCanControl()"
+                            :class="[
+                                'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
+                                getCanControl()
+                                    ? 'bg-purple-500 hover:bg-purple-600 text-white' 
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ]"
+                        >
+                            Undock
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Battery & Status Info -->
+                <div v-if="robotData.pingStatus[selectedRobot]" class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-3">Robot Info</h3>
+                    
+                    <div v-if="robotData.robotStatus[selectedRobot]?.battery_soc !== undefined" class="mb-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-gray-700">Battery Level</span>
+                            <span :class="['text-sm font-bold', getBatteryTextColor()]">
+                                {{ robotData.robotStatus[selectedRobot].battery_soc }}%
+                            </span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div 
+                                :class="['h-full transition-all duration-500 rounded-full', getBatteryBarColor()]" 
+                                :style="{width: robotData.robotStatus[selectedRobot].battery_soc + '%'}"
+                            ></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-gray-600">Status:</span>
+                            <span :class="['font-medium ml-1', getStatusTextColor()]">{{ getQuickStatus() }}</span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Connection:</span>
+                            <span :class="['font-medium ml-1', robotData.pingStatus[selectedRobot] ? 'text-green-600' : 'text-red-600']">
+                                {{ robotData.pingStatus[selectedRobot] ? 'Online' : 'Offline' }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-600 mt-3 pt-3 border-t">
+                        Last updated: {{ lastUpdate }}
+                    </div>
+                </div>
+
+                <!-- Advanced Controls Link -->
+                <div class="border-t pt-4">
+                    <button
+                        @click="openFullControls"
+                        class="w-full p-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+                    >
+                        Open Advanced Controls
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- FUTURE: Floating Controls (Hidden for now, ready for user preference)
+        <div class="floating-controls" :class="{ active: uiMode === 'floating' }" v-if="false">
+            <div class="floating-control-panel">
+                <h3 class="text-lg font-semibold mb-4">{{ selectedRobot }} Quick Controls</h3>
+                [... floating controls content from first version ...]
+            </div>
+        </div>
+        -->
     </div>
 
     <script>
@@ -542,6 +1079,11 @@
                 const lastUpdate = ref('N/A');
                 const errorSummaryExpanded = ref(false);
                 const configBannerDismissed = ref(false);
+                const drawerOpen = ref(false);
+                
+                // FUTURE: UI Mode preference (commented out for now)
+                // const uiMode = ref('drawer'); // 'drawer' or 'floating'
+                
                 const robotData = ref({
                     pingStatus: {},
                     robotStatus: {},
@@ -572,6 +1114,90 @@
                     '1416': { message: 'Roller overtemperature', type: 'critical' },
                     '1417': { message: 'System overtemperature', type: 'critical' },
                     '3605': { message: 'Module MCU disconnected', type: 'critical' }
+                };
+
+                // FUTURE: UI Mode switching function (commented out for now)
+                /*
+                const toggleUIMode = () => {
+                    uiMode.value = uiMode.value === 'drawer' ? 'floating' : 'drawer';
+                    closeDrawer(); // Close drawer when switching modes
+                };
+                */
+
+                // Drawer control methods
+                const toggleDrawer = () => {
+                    drawerOpen.value = !drawerOpen.value;
+                };
+
+                const closeDrawer = () => {
+                    drawerOpen.value = false;
+                };
+
+                const openFullControls = () => {
+                    closeDrawer();
+                    // Scroll to full controls section
+                    const controlsElement = document.querySelector('.robot-control-component');
+                    if (controlsElement) {
+                        controlsElement.scrollIntoView({ behavior: 'smooth' });
+                    }
+                };
+
+                // Quick control methods
+                const getCanControl = () => {
+                    return robotData.value.pingStatus[selectedRobot.value] && !loading.value;
+                };
+
+                const getQuickStatus = () => {
+                    if (!robotData.value.pingStatus[selectedRobot.value]) return 'Offline';
+                    const status = robotData.value.robotStatus[selectedRobot.value];
+                    if (!status) return 'Unknown';
+                    if (status.soft_estop_engaged) return 'E-Stop';
+                    const workingStatus = (status.working_status || '').toLowerCase();
+                    if (workingStatus === 'charging') return 'Charging';
+                    if (workingStatus === 'cleaning') return 'Cleaning';
+                    if (workingStatus === 'navigation') return 'Moving';
+                    if (workingStatus === 'idle') return 'Idle';
+                    return workingStatus || 'Unknown';
+                };
+
+                const getQuickStatusBadgeClass = () => {
+                    if (!robotData.value.pingStatus[selectedRobot.value]) return 'bg-gray-500';
+                    const status = robotData.value.robotStatus[selectedRobot.value];
+                    if (!status) return 'bg-gray-500';
+                    if (status.soft_estop_engaged) return 'bg-red-500';
+                    if (status.watch_doggo_error_rm?.length > 0) return 'bg-orange-500';
+                    if (status.is_charging) return 'bg-blue-500';
+                    const workingStatus = (status.working_status || '').toLowerCase();
+                    if (workingStatus === 'cleaning') return 'bg-green-500';
+                    return 'bg-yellow-500';
+                };
+
+                const quickCommand = async (command) => {
+                    if (!getCanControl()) return;
+                    
+                    try {
+                        loading.value = true;
+                        const response = await fetch(`/api/robot-control/${command}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                robot_name: selectedRobot.value,
+                                ...(command === 'docking' ? { action: 'dock' } : {}),
+                                ...(command === 'undock' ? { action: 'undock' } : {})
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            // Auto refresh after successful command
+                            setTimeout(() => {
+                                refreshData();
+                            }, 1000);
+                        }
+                    } catch (error) {
+                        console.error('Quick command error:', error);
+                    } finally {
+                        loading.value = false;
+                    }
                 };
                 
                 // Load robot configuration from API
@@ -797,8 +1423,8 @@
                 };
                 
                 const formatArea = (area) => {
-                    if (!area) return '0 m²';
-                    return `${area.toFixed(1)} m²`;
+                    if (!area) return '0 mï¿½';
+                    return `${area.toFixed(1)} mï¿½`;
                 };
 
                 // Robot control event handlers
@@ -929,12 +1555,15 @@
                     workerActive,
                     errorSummaryExpanded,
                     motorDataService: MotorDataService,
+                    drawerOpen,
+                    // FUTURE: uiMode,
                     
                     // Methods
                     refreshData,
-                    fetchData: fetchGeneralData, // FIX: Add missing fetchData method
+                    fetchData: fetchGeneralData,
                     isMotorEnabled,
                     reloadConfig,
+                    // FUTURE: toggleUIMode,
                     
                     // Error handling
                     getAllActiveErrors,
@@ -943,7 +1572,7 @@
                     getErrorSeverityClass,
                     getErrorBadgeClass,
                     getErrorTypeName,
-                    errorDefinitions, // FIX: Expose errorDefinitions to template
+                    errorDefinitions,
                     
                     // Status display methods
                     getRobotWorkingStatus,
@@ -958,7 +1587,16 @@
 
                     // Robot control event handlers
                     handleControlSuccess,
-                    handleControlError
+                    handleControlError,
+
+                    // Drawer methods
+                    toggleDrawer,
+                    closeDrawer,
+                    openFullControls,
+                    getCanControl,
+                    getQuickStatus,
+                    getQuickStatusBadgeClass,
+                    quickCommand
                 };
             },
             

@@ -303,22 +303,22 @@ const RobotControlComponent = {
             {{ workingStatus }}
           </span>
           <span v-if="batteryLevel" class="text-sm text-gray-600">
-            🔋 {{ batteryLevel }}%
+            Battery: {{ batteryLevel }}%
           </span>
         </div>
       </div>
       
       <!-- Quick Status Alerts -->
       <div v-if="!isOnline" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-        <p class="text-red-800 text-sm">❌ Robot is offline - controls disabled</p>
+        <p class="text-red-800 text-sm">Robot is offline - controls disabled</p>
       </div>
       
       <div v-if="isEstopEngaged" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-        <p class="text-red-800 text-sm">🛑 E-Stop is engaged</p>
+        <p class="text-red-800 text-sm">E-Stop is engaged</p>
       </div>
       
       <div v-if="hasActiveErrors" class="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-        <p class="text-orange-800 text-sm">⚠️ Robot has active errors</p>
+        <p class="text-orange-800 text-sm">Robot has active errors</p>
       </div>
       
       <!-- Main Control Buttons Grid -->
@@ -334,7 +334,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          🛑 Reset E-Stop
+          Reset E-Stop
         </button>
         
         <button
@@ -347,7 +347,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          ⏹️ Stop
+          Stop
         </button>
         
         <button
@@ -360,7 +360,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          🚨 Emergency Stop
+          Emergency Stop
         </button>
         
         <!-- Navigation Controls -->
@@ -374,7 +374,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          ⏸️ Pause
+          Pause
         </button>
         
         <button
@@ -387,7 +387,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          ▶️ Resume
+          Resume
         </button>
         
         <button
@@ -400,7 +400,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          🏠 Go to Dock
+          Go to Dock
         </button>
         
         <!-- Charging Controls -->
@@ -414,7 +414,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          🔌 Start Charging
+          Start Charging
         </button>
         
         <button
@@ -427,7 +427,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          🔌 Stop Charging
+          Stop Charging
         </button>
         
         <!-- Docking Controls -->
@@ -441,7 +441,7 @@ const RobotControlComponent = {
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           ]"
         >
-          🚀 Dock
+          Dock
         </button>
       </div>
       
@@ -451,7 +451,7 @@ const RobotControlComponent = {
           @click="showAdvanced = !showAdvanced"
           class="w-full p-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
         >
-          {{ showAdvanced ? '▼ Hide Advanced Controls' : '▶ Show Advanced Controls' }}
+          {{ showAdvanced ? 'Hide Advanced Controls' : 'Show Advanced Controls' }}
         </button>
       </div>
       
@@ -524,7 +524,7 @@ const RobotControlComponent = {
               >
             </div>
             <div>
-              <label class="block text-xs text-gray-600 mb-1">Rotation (θ)</label>
+              <label class="block text-xs text-gray-600 mb-1">Rotation (?)</label>
               <input
                 v-model.number="navigationTarget.theta"
                 type="number"
