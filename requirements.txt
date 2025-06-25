@@ -9,3 +9,7 @@ requests==2.31.0
 typish==1.9.3
 urllib3==2.2.1
 datetime
+flask-cors>=3.0.10
+flask-socketio>=5.1.0
+python-socketio>=5.7.0
+eventlet>=0.33.0

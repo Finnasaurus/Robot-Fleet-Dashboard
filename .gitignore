@@ -13,6 +13,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+/venv/
 
 # Production configs
 config.yaml
@@ -51,6 +52,7 @@ flexaGUI.sh
 implement.sh
 inject_motor_data.py
 debug-motor-data.js
+remotecontroller.py
 
 # ROS build artifacts (but keep .msg files)
 build/
@@ -89,6 +91,7 @@ build.sh
 # SSH and credentials
 *.pem
 *.key
+*.http
 id_rsa*
 ssh_config
 known_hosts

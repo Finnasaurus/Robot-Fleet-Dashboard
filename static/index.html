@@ -106,9 +106,10 @@
     <script src="/static/js/components/MotorDataComponent.js"></script>
     <script src="/static/js/components/MotorDetailComponent.js"></script>
     <script src="/static/js/components/RobotIndicatorComponent.js"></script>
+    <script src="/static/js/components/RobotControlComponent.js"></script>
     <!-- Main application script -->
     <script src="/static/js/main.js"></script>
-    <script src="/static/js/debug-motor-data.js"></script>
+    <!-- <script src="/static/js/debug-motor-data.js"></script> -->
 </head>
 <body class="bg-gray-100">
     <div id="app">
@@ -466,6 +467,17 @@
                     :is-online="robotData.pingStatus[selectedRobot]"
                 ></motor-detail-component>
             </div>
+
+            <!-- Robot Control Panel -->
+            <div class="mt-6">
+                <robot-control-component
+                    :robot-name="selectedRobot"
+                    :is-online="robotData.pingStatus[selectedRobot]"
+                    :robot-status="robotData.robotStatus[selectedRobot]"
+                    @command-success="handleControlSuccess"
+                    @command-error="handleControlError"
+                ></robot-control-component>
+            </div>
             
             <!-- Status Legend -->
             <div class="mt-6 bg-white shadow rounded-lg p-4">
@@ -518,7 +530,8 @@
             components: {
                 'motor-data-component': MotorDataComponent,
                 'motor-detail-component': MotorDetailComponent,
-                'robot-indicator-component': RobotIndicatorComponent
+                'robot-indicator-component': RobotIndicatorComponent,
+                'robot-control-component': RobotControlComponent
             },
             
             setup() {
@@ -787,6 +800,19 @@
                     if (!area) return '0 m²';
                     return `${area.toFixed(1)} m²`;
                 };
+
+                // Robot control event handlers
+                const handleControlSuccess = (event) => {
+                    console.log('Robot control command succeeded:', event);
+                    setTimeout(() => {
+                        refreshData();
+                    }, 1000);
+                };
+
+                const handleControlError = (event) => {
+                    console.error('Robot control command failed:', event);
+                    alert(`Command failed: ${event.error}`);
+                };
                 
                 // Refresh function for manual refresh
                 const refreshData = () => {
@@ -928,7 +954,11 @@
                     getBatteryBarColor,
                     getBatteryTextColor,
                     formatCleaningTime,
-                    formatArea
+                    formatArea,
+
+                    // Robot control event handlers
+                    handleControlSuccess,
+                    handleControlError
                 };
             },
             

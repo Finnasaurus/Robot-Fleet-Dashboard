@@ -7,6 +7,9 @@ import logging
 import signal
 import sys
 import atexit
+import requests
+import json
+from dotenv import load_dotenv
 
 from ping_addresses import MultiPingChecker, RobotConfig
 
@@ -22,6 +25,11 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+load_dotenv()
+# Robot API configuration
+ROBOT_API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8090/")
+AUTHKEY = {"Authorization": os.environ.get("API_AUTH_KEY", "enter-your-api-key")}
 
 app = Flask(__name__)
 
@@ -618,6 +626,251 @@ def about_page():
     </body>
     </html>
     '''
+
+@app.route('/api/robot-control/<command>', methods=['POST'])
+def robot_control_proxy(command):
+    """
+    Direct robot API calls - standalone like remotecontroller.py
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        robot_name = data.get('robot_name')
+        if not robot_name:
+            return jsonify({"error": "robot_name is required"}), 400
+
+        # Use the same API configuration as rmHelper/remotecontroller
+        API_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8090/")
+        API_HEADERS = {"Authorization": os.environ.get("API_AUTH_KEY", "enter-your-api-key")}
+        
+        # Build the request URL and payload
+        endpoint_url = API_URL.rstrip('/') + '/' + command
+        
+        # Base payload - always include robot_name
+        payload = {"robot_name": robot_name}
+        
+        # Add command-specific parameters
+        if command == 'docking':
+            payload['action'] = data.get('action', 'dock')
+        elif command == 'set_cleaning_mode':
+            payload.update({
+                'vacuum': data.get('vacuum', 0),
+                'roller': data.get('roller', 0), 
+                'gutter': data.get('gutter', False)
+            })
+        elif command == 'navigation':
+            payload['pose2d'] = data.get('pose2d', [0, 0, 0])
+        elif command == 'start_process':
+            payload.update({
+                'process': data.get('process'),
+                'order': data.get('order', 'ASCENDING')
+            })
+            if data.get('type'):
+                payload['type'] = data.get('type')
+            if data.get('selection'):
+                payload['selection'] = data.get('selection')
+        elif command == 'manage_goals':
+            payload.update({
+                'exec_code': data.get('exec_code', 5),
+                'argument': data.get('argument', '100')
+            })
+        
+        # Make the API call
+        logger.info(f"Robot control: {robot_name} -> {command} -> {endpoint_url}")
+        
+        response = requests.post(
+            endpoint_url,
+            headers=API_HEADERS,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            try:
+                result = response.json()
+            except:
+                result = {"message": response.text}
+            
+            logger.info(f"Robot control success: {robot_name} -> {command}")
+            return jsonify({
+                "success": True,
+                "command": command,
+                "robot_name": robot_name,
+                "result": result
+            })
+        else:
+            logger.error(f"Robot control failed: {robot_name} -> {command} -> {response.status_code}")
+            return jsonify({
+                "error": f"Robot API returned status {response.status_code}",
+                "details": response.text
+            }), response.status_code
+            
+    except requests.exceptions.Timeout:
+        logger.error(f"Robot control timeout: {robot_name} -> {command}")
+        return jsonify({"error": "Command timed out"}), 408
+        
+    except requests.exceptions.ConnectionError:
+        logger.error(f"Robot control connection error: {robot_name} -> {command}")
+        return jsonify({"error": "Cannot connect to robot API"}), 503
+        
+    except Exception as e:
+        logger.error(f"Robot control error: {robot_name} -> {command} -> {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/robot-control/batch', methods=['POST'])
+def robot_control_batch():
+    """
+    Execute multiple robot control commands in sequence.
+    Useful for complex operations that require multiple API calls.
+    """
+    try:
+        data = request.get_json()
+        if not data or 'commands' not in data:
+            return jsonify({"error": "No commands provided"}), 400
+        
+        commands = data['commands']
+        robot_name = data.get('robot_name')
+        
+        if not robot_name:
+            return jsonify({"error": "robot_name is required"}), 400
+        
+        results = []
+        
+        for cmd in commands:
+            command = cmd.get('command')
+            params = cmd.get('params', {})
+            
+            # Add robot_name to params
+            params['robot_name'] = robot_name
+            
+            # Execute command using the single command endpoint
+            try:
+                # Make internal request to our own API
+                internal_response = requests.post(
+                    f"http://localhost:{request.environ.get('SERVER_PORT', '8000')}/api/robot-control/{command}",
+                    json=params,
+                    timeout=30
+                )
+                
+                result = {
+                    "command": command,
+                    "success": internal_response.status_code == 200,
+                    "result": internal_response.json()
+                }
+                
+                results.append(result)
+                
+                # If command failed and stop_on_error is True, break
+                if not result['success'] and data.get('stop_on_error', True):
+                    break
+                    
+            except Exception as e:
+                result = {
+                    "command": command,
+                    "success": False,
+                    "error": str(e)
+                }
+                results.append(result)
+                
+                if data.get('stop_on_error', True):
+                    break
+        
+        return jsonify({
+            "success": all(r['success'] for r in results),
+            "robot_name": robot_name,
+            "results": results
+        })
+        
+    except Exception as e:
+        logger.error(f"Batch robot control error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/robot-presets', methods=['GET'])
+def get_robot_presets():
+    """
+    Get predefined robot operation presets.
+    These are common sequences of commands for typical operations.
+    """
+    presets = {
+        "dock_and_charge": {
+            "name": "Dock and Charge",
+            "description": "Navigate to dock and start charging",
+            "commands": [
+                {"command": "navigate_back_to_dock", "params": {}},
+                {"command": "docking", "params": {"action": "dock"}},
+                {"command": "start_charging", "params": {}}
+            ]
+        },
+        "emergency_stop": {
+            "name": "Emergency Stop",
+            "description": "Immediately stop all operations and clear goals",
+            "commands": [
+                {"command": "stop", "params": {}},
+                {"command": "manage_goals", "params": {"exec_code": 5, "argument": "100"}}
+            ]
+        },
+        "start_cleaning_cycle": {
+            "name": "Start Full Cleaning",
+            "description": "Configure cleaning devices and start cleaning",
+            "commands": [
+                {"command": "set_cleaning_mode", "params": {"vacuum": 2, "roller": 1, "gutter": True}},
+                {"command": "start_process", "params": {"process": "default_cleaning", "order": "ASCENDING"}}
+            ]
+        },
+        "reset_and_resume": {
+            "name": "Reset E-Stop and Resume",
+            "description": "Reset e-stop and resume operations",
+            "commands": [
+                {"command": "reset_soft_estop", "params": {}},
+                {"command": "resume", "params": {}}
+            ]
+        }
+    }
+    
+    return jsonify(presets)
+
+@app.route('/api/robot-presets/<preset_name>', methods=['POST'])
+def execute_robot_preset(preset_name):
+    """
+    Execute a predefined robot preset.
+    """
+    try:
+        data = request.get_json()
+        robot_name = data.get('robot_name')
+        
+        if not robot_name:
+            return jsonify({"error": "robot_name is required"}), 400
+        
+        # Get presets
+        presets_response = get_robot_presets()
+        presets = presets_response.get_json()
+        
+        if preset_name not in presets:
+            return jsonify({"error": f"Unknown preset: {preset_name}"}), 400
+        
+        preset = presets[preset_name]
+        
+        # Execute preset as batch command
+        batch_data = {
+            "robot_name": robot_name,
+            "commands": preset["commands"],
+            "stop_on_error": data.get("stop_on_error", True)
+        }
+        
+        # Use internal batch endpoint
+        batch_response = robot_control_batch()
+        
+        return jsonify({
+            "preset": preset_name,
+            "preset_description": preset["description"],
+            "batch_result": batch_response.get_json()
+        })
+        
+    except Exception as e:
+        logger.error(f"Preset execution error: {preset_name} -> {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == '__main__':
