@@ -865,7 +865,7 @@
                     <h3 class="text-sm font-semibold text-gray-700 mb-3">Emergency Controls</h3>
                     <div class="grid grid-cols-2 gap-3">
                         <button
-                            @click="quickCommand('reset_soft_estop')"
+                            @click="releaseEstopComplete()"
                             :disabled="!getCanControl() || !robotData.robotStatus[selectedRobot]?.soft_estop_engaged"
                             :class="[
                                 'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
@@ -874,7 +874,13 @@
                                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             ]"
                         >
-                            Reset E-Stop
+                            Release E-Stop
+                            <div v-if="estopReleaseLoading" class="inline-block ml-2">
+                                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
                         </button>
                         
                         <button
@@ -883,11 +889,11 @@
                             :class="[
                                 'drawer-btn p-3 rounded-lg font-medium text-sm transition-colors',
                                 getCanControl()
-                                    ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
                                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             ]"
                         >
-                            Stop Robot
+                            Emergency Stop
                         </button>
                     </div>
                 </div>
@@ -1080,6 +1086,9 @@
                 const errorSummaryExpanded = ref(false);
                 const configBannerDismissed = ref(false);
                 const drawerOpen = ref(false);
+
+                const estopReleaseLoading = ref(false);
+                const lastEstopReleaseResult = ref(null);
                 
                 // FUTURE: UI Mode preference (commented out for now)
                 // const uiMode = ref('drawer'); // 'drawer' or 'floating'
@@ -1439,6 +1448,128 @@
                     console.error('Robot control command failed:', event);
                     alert(`Command failed: ${event.error}`);
                 };
+
+                const releaseEstopComplete = async () => {
+                    if (!getCanControl() || !robotData.value.robotStatus[selectedRobot.value]?.soft_estop_engaged) {
+                        return;
+                    }
+
+                    // Show confirmation dialog
+                    if (!confirm(`Complete E-Stop Release for ${selectedRobot.value}?\n\nThis will:\n1. Reset software e-stop\n2. Enable motor controller\n\nProceed?`)) {
+                        return;
+                    }
+
+                    estopReleaseLoading.value = true;
+                    lastEstopReleaseResult.value = null;
+
+                    try {
+                        console.log(`Starting complete e-stop release for ${selectedRobot.value}`);
+                        
+                        // Use the batch endpoint to execute both commands in sequence
+                        const response = await fetch('/api/robot-control/batch', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                robot_name: selectedRobot.value,
+                                stop_on_error: true,
+                                commands: [
+                                    {
+                                        command: 'reset_soft_estop',
+                                        params: {}
+                                    },
+                                    {
+                                        command: 'enable_motor',
+                                        params: {}
+                                    }
+                                ]
+                            })
+                        });
+
+                        const result = await response.json();
+                        lastEstopReleaseResult.value = result;
+
+                        if (response.ok && result.success) {
+                            console.log('Complete e-stop release successful:', result);
+                            
+                            // Show success notification
+                            showNotification('success', `E-Stop successfully released for ${selectedRobot.value}`, 5000);
+                            
+                            // Log the successful operations
+                            console.log('Executed commands:');
+                            result.results.forEach((cmdResult, index) => {
+                                console.log(`  ${index + 1}. ${cmdResult.command}: ${cmdResult.success ? 'SUCCESS' : 'FAILED'}`);
+                            });
+                            
+                            // Refresh robot status after successful release
+                            setTimeout(() => {
+                                refreshData();
+                            }, 1000);
+                            
+                        } else {
+                            console.error('Complete e-stop release failed:', result);
+                            
+                            // Find which command failed
+                            const failedCommands = result.results?.filter(r => !r.success) || [];
+                            const failureDetails = failedCommands.length > 0 
+                                ? `Failed at: ${failedCommands.map(f => f.command).join(', ')}`
+                                : 'Unknown error';
+                            
+                            showNotification('error', `E-Stop release failed: ${failureDetails}`, 8000);
+                        }
+
+                    } catch (error) {
+                        console.error('Error during complete e-stop release:', error);
+                        showNotification('error', `E-Stop release error: ${error.message}`, 8000);
+                        lastEstopReleaseResult.value = { error: error.message };
+                    } finally {
+                        estopReleaseLoading.value = false;
+                    }
+                };
+
+                const showNotification = (type, message, duration = 5000) => {
+                    // Create a notification element
+                    const notification = document.createElement('div');
+                    notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all transform translate-x-full`;
+                    
+                    if (type === 'success') {
+                        notification.className += ' bg-green-500 text-white';
+                    } else if (type === 'error') {
+                        notification.className += ' bg-red-500 text-white';
+                    } else {
+                        notification.className += ' bg-blue-500 text-white';
+                    }
+                    
+                    notification.innerHTML = `
+                        <div class="flex items-center">
+                            <div class="flex-1">${message}</div>
+                            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                                ×
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    // Slide in
+                    setTimeout(() => {
+                        notification.classList.remove('translate-x-full');
+                    }, 100);
+                    
+                    // Auto remove
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.classList.add('translate-x-full');
+                            setTimeout(() => {
+                                if (notification.parentElement) {
+                                    notification.remove();
+                                }
+                            }, 300);
+                        }
+                    }, duration);
+                };
+
                 
                 // Refresh function for manual refresh
                 const refreshData = () => {
@@ -1556,6 +1687,8 @@
                     errorSummaryExpanded,
                     motorDataService: MotorDataService,
                     drawerOpen,
+                    estopReleaseLoading,
+                    lastEstopReleaseResult,
                     // FUTURE: uiMode,
                     
                     // Methods

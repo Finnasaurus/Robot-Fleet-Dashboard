@@ -28,19 +28,57 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 # Robot API configuration
+ROS_API_URL = "http://localhost:8091"  # ROS API Bridge server
 ROBOT_API_BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8090/")
 AUTHKEY = {"Authorization": os.environ.get("API_AUTH_KEY", "enter-your-api-key")}
 
 app = Flask(__name__)
 
+# Define which commands should go to ROS bridge vs existing API
+ROS_COMMANDS = {
+    'pause', 'resume', 'stop', 'reset_soft_estop', 'enable_motor', 
+    'change_map', 'change_state', 'teleop', 'manage_goals'
+}
+
+EXISTING_API_COMMANDS = {
+    'start_charging', 'stop_charging', 'navigate_back_to_dock', 'docking',
+    'battery_soc', 'is_charging', 'goal_queue_size', 'cleaning_stats',
+    'set_cleaning_mode', 'navigation', 'start_process'
+}
+
 def load_robot_config():
     """Load robot configuration from config.yaml"""
     try:
-        config = RobotConfig.load_config('config.yaml')
-        return config
+        with open('config.yaml') as f:
+            config = yaml.safe_load(f)
+            
+            robots = []
+            system_config = {
+                'update_interval': 5,
+                'motor_update_interval': 1
+            }
+            
+            # Parse fleet configuration
+            for fleet_name, fleet_data in config.items():
+                for robot_id, robot_info in fleet_data.items():
+                    robot_entry = {
+                        'id': robot_id,
+                        'name': robot_info.get('name', robot_id),
+                        'ip': robot_info.get('ip', '127.0.0.1'),
+                        'has_motors': robot_info.get('has_motors', False)
+                    }
+                    robots.append(robot_entry)
+            
+            return {
+                'robots': robots,
+                'system': system_config
+            }
     except Exception as e:
         logger.error(f"Error loading robot config: {e}")
-        return None
+        return {
+            'robots': [],
+            'system': {'update_interval': 5, 'motor_update_interval': 1}
+        }
 
 # Initialize with dynamic configuration
 config = load_robot_config()
@@ -630,7 +668,7 @@ def about_page():
 @app.route('/api/robot-control/<command>', methods=['POST'])
 def robot_control_proxy(command):
     """
-    Direct robot API calls - standalone like remotecontroller.py
+    Hybrid robot control proxy - routes to ROS bridge or existing API based on command
     """
     try:
         data = request.get_json()
@@ -641,71 +679,131 @@ def robot_control_proxy(command):
         if not robot_name:
             return jsonify({"error": "robot_name is required"}), 400
 
-        # Use the same API configuration as rmHelper/remotecontroller
-        API_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8090/")
-        API_HEADERS = {"Authorization": os.environ.get("API_AUTH_KEY", "enter-your-api-key")}
-        
-        # Build the request URL and payload
-        endpoint_url = API_URL.rstrip('/') + '/' + command
-        
-        # Base payload - always include robot_name
-        payload = {"robot_name": robot_name}
-        
-        # Add command-specific parameters
-        if command == 'docking':
-            payload['action'] = data.get('action', 'dock')
-        elif command == 'set_cleaning_mode':
-            payload.update({
-                'vacuum': data.get('vacuum', 0),
-                'roller': data.get('roller', 0), 
-                'gutter': data.get('gutter', False)
-            })
-        elif command == 'navigation':
-            payload['pose2d'] = data.get('pose2d', [0, 0, 0])
-        elif command == 'start_process':
-            payload.update({
-                'process': data.get('process'),
-                'order': data.get('order', 'ASCENDING')
-            })
-            if data.get('type'):
-                payload['type'] = data.get('type')
-            if data.get('selection'):
-                payload['selection'] = data.get('selection')
-        elif command == 'manage_goals':
-            payload.update({
-                'exec_code': data.get('exec_code', 5),
-                'argument': data.get('argument', '100')
-            })
-        
-        # Make the API call
-        logger.info(f"Robot control: {robot_name} -> {command} -> {endpoint_url}")
-        
-        response = requests.post(
-            endpoint_url,
-            headers=API_HEADERS,
-            json=payload,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            try:
-                result = response.json()
-            except:
-                result = {"message": response.text}
+        # Route to ROS Bridge for ROS commands
+        if command in ROS_COMMANDS:
+            logger.info(f"Routing {command} to ROS bridge for {robot_name}")
             
-            logger.info(f"Robot control success: {robot_name} -> {command}")
-            return jsonify({
-                "success": True,
-                "command": command,
-                "robot_name": robot_name,
-                "result": result
-            })
+            # Map dashboard commands to ROS bridge endpoints
+            ros_endpoint_map = {
+                'pause': 'manage_goals',
+                'resume': 'manage_goals',
+                'stop': 'manage_goals',
+                'reset_soft_estop': 'reset_soft_estop',
+                'enable_motor': 'enable_motor',
+                'change_map': 'change_map',
+                'change_state': 'change_state',
+                'teleop': 'teleop',
+                'manage_goals': 'manage_goals'
+            }
+            
+            ros_endpoint = ros_endpoint_map.get(command, command)
+            ros_url = f"{ROS_API_URL}/api/ros/{ros_endpoint}"
+            
+            # Build payload for ROS bridge
+            ros_payload = {"robot_name": robot_name}
+            
+            # Add command-specific parameters
+            if command == 'pause':
+                ros_payload['exec_code'] = 1
+            elif command == 'resume':
+                ros_payload['exec_code'] = 0
+            elif command == 'stop':
+                ros_payload['exec_code'] = 2
+            elif command == 'change_map':
+                ros_payload['map_name'] = data.get('map_name', '')
+            elif command == 'change_state':
+                ros_payload['target_mode'] = data.get('target_mode', 0)
+                ros_payload['target_state'] = data.get('target_state', 0)
+            elif command == 'manage_goals':
+                ros_payload['exec_code'] = data.get('exec_code', 0)
+            
+            # Make request to ROS bridge
+            response = requests.post(
+                ros_url,
+                json=ros_payload,
+                timeout=30
+            )
+            
+            if response.ok:
+                result = response.json()
+                logger.info(f"ROS bridge success: {robot_name} -> {command}")
+                return jsonify(result)
+            else:
+                logger.error(f"ROS bridge failed: {robot_name} -> {command} -> {response.status_code}")
+                return jsonify({
+                    "error": f"ROS bridge returned status {response.status_code}",
+                    "details": response.text
+                }), response.status_code
+                
+        # Route to existing API for non-ROS commands
         else:
-            logger.error(f"Robot control failed: {robot_name} -> {command} -> {response.status_code}")
-            return jsonify({
-                "error": f"Robot API returned status {response.status_code}",
-                "details": response.text
-            }), response.status_code
+            logger.info(f"Routing {command} to existing API for {robot_name}")
+            
+            # Use the same API configuration as rmHelper/remotecontroller
+            API_URL = ROBOT_API_BASE_URL
+            API_HEADERS = AUTHKEY
+            
+            # Build the request URL and payload
+            endpoint_url = API_URL.rstrip('/') + '/' + command
+            
+            # Base payload - always include robot_name
+            payload = {"robot_name": robot_name}
+            
+            # Add command-specific parameters
+            if command == 'docking':
+                payload['action'] = data.get('action', 'dock')
+            elif command == 'set_cleaning_mode':
+                payload.update({
+                    'vacuum': data.get('vacuum', 0),
+                    'roller': data.get('roller', 0), 
+                    'gutter': data.get('gutter', False)
+                })
+            elif command == 'navigation':
+                payload['pose2d'] = data.get('pose2d', [0, 0, 0])
+            elif command == 'start_process':
+                payload.update({
+                    'process': data.get('process'),
+                    'order': data.get('order', 'ASCENDING')
+                })
+                if data.get('type'):
+                    payload['type'] = data.get('type')
+                if data.get('selection'):
+                    payload['selection'] = data.get('selection')
+            elif command == 'manage_goals':
+                payload.update({
+                    'exec_code': data.get('exec_code', 5),
+                    'argument': data.get('argument', '100')
+                })
+            
+            # Make the API call
+            logger.info(f"Robot control: {robot_name} -> {command} -> {endpoint_url}")
+            
+            response = requests.post(
+                endpoint_url,
+                headers=API_HEADERS,
+                json=payload,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                except:
+                    result = {"message": response.text}
+                
+                logger.info(f"Robot control success: {robot_name} -> {command}")
+                return jsonify({
+                    "success": True,
+                    "command": command,
+                    "robot_name": robot_name,
+                    "result": result
+                })
+            else:
+                logger.error(f"Robot control failed: {robot_name} -> {command} -> {response.status_code}")
+                return jsonify({
+                    "error": f"Robot API returned status {response.status_code}",
+                    "details": response.text
+                }), response.status_code
             
     except requests.exceptions.Timeout:
         logger.error(f"Robot control timeout: {robot_name} -> {command}")
@@ -723,7 +821,7 @@ def robot_control_proxy(command):
 def robot_control_batch():
     """
     Execute multiple robot control commands in sequence.
-    Useful for complex operations that require multiple API calls.
+    Now supports both ROS and existing API commands.
     """
     try:
         data = request.get_json()
@@ -745,37 +843,82 @@ def robot_control_batch():
             # Add robot_name to params
             params['robot_name'] = robot_name
             
-            # Execute command using the single command endpoint
-            try:
-                # Make internal request to our own API
-                internal_response = requests.post(
-                    f"http://localhost:{request.environ.get('SERVER_PORT', '8000')}/api/robot-control/{command}",
-                    json=params,
-                    timeout=30
-                )
+            # Check if this is a ROS command that should use the bridge
+            if command in ROS_COMMANDS:
+                logger.info(f"Batch: Routing {command} to ROS bridge")
                 
-                result = {
-                    "command": command,
-                    "success": internal_response.status_code == 200,
-                    "result": internal_response.json()
-                }
-                
-                results.append(result)
-                
-                # If command failed and stop_on_error is True, break
-                if not result['success'] and data.get('stop_on_error', True):
-                    break
+                # Use the ROS batch endpoint
+                try:
+                    ros_response = requests.post(
+                        f"{ROS_API_URL}/api/ros/batch",
+                        json={
+                            "robot_name": robot_name,
+                            "commands": [{
+                                "service": command,
+                                "params": params
+                            }],
+                            "stop_on_error": False
+                        },
+                        timeout=30
+                    )
                     
-            except Exception as e:
-                result = {
-                    "command": command,
-                    "success": False,
-                    "error": str(e)
-                }
-                results.append(result)
+                    if ros_response.ok:
+                        ros_result = ros_response.json()
+                        if ros_result.get('results') and len(ros_result['results']) > 0:
+                            result = {
+                                "command": command,
+                                "success": ros_result['results'][0].get('success', False),
+                                "result": ros_result['results'][0]
+                            }
+                        else:
+                            result = {
+                                "command": command,
+                                "success": False,
+                                "error": "No result from ROS bridge"
+                            }
+                    else:
+                        result = {
+                            "command": command,
+                            "success": False,
+                            "error": f"ROS bridge error: {ros_response.status_code}"
+                        }
+                        
+                except Exception as e:
+                    result = {
+                        "command": command,
+                        "success": False,
+                        "error": str(e)
+                    }
+            else:
+                # Use existing API
+                logger.info(f"Batch: Routing {command} to existing API")
                 
-                if data.get('stop_on_error', True):
-                    break
+                try:
+                    # Make internal request to our own API
+                    internal_response = requests.post(
+                        f"http://localhost:{request.environ.get('SERVER_PORT', '8000')}/api/robot-control/{command}",
+                        json=params,
+                        timeout=30
+                    )
+                    
+                    result = {
+                        "command": command,
+                        "success": internal_response.status_code == 200,
+                        "result": internal_response.json()
+                    }
+                    
+                except Exception as e:
+                    result = {
+                        "command": command,
+                        "success": False,
+                        "error": str(e)
+                    }
+            
+            results.append(result)
+            
+            # If command failed and stop_on_error is True, break
+            if not result['success'] and data.get('stop_on_error', True):
+                break
         
         return jsonify({
             "success": all(r['success'] for r in results),
@@ -791,7 +934,7 @@ def robot_control_batch():
 def get_robot_presets():
     """
     Get predefined robot operation presets.
-    These are common sequences of commands for typical operations.
+    Updated to include ROS commands.
     """
     presets = {
         "dock_and_charge": {
@@ -805,10 +948,9 @@ def get_robot_presets():
         },
         "emergency_stop": {
             "name": "Emergency Stop",
-            "description": "Immediately stop all operations and clear goals",
+            "description": "Immediately stop all operations",
             "commands": [
-                {"command": "stop", "params": {}},
-                {"command": "manage_goals", "params": {"exec_code": 5, "argument": "100"}}
+                {"command": "stop", "params": {}}  # This will use ROS bridge
             ]
         },
         "start_cleaning_cycle": {
@@ -821,10 +963,20 @@ def get_robot_presets():
         },
         "reset_and_resume": {
             "name": "Reset E-Stop and Resume",
-            "description": "Reset e-stop and resume operations",
+            "description": "Reset e-stop, enable motor, and resume operations",
             "commands": [
-                {"command": "reset_soft_estop", "params": {}},
-                {"command": "resume", "params": {}}
+                {"command": "reset_soft_estop", "params": {}},  # ROS bridge
+                {"command": "enable_motor", "params": {}},      # ROS bridge
+                {"command": "resume", "params": {}}              # ROS bridge
+            ]
+        },
+        "pause_and_dock": {
+            "name": "Pause and Dock",
+            "description": "Pause current operation and return to dock",
+            "commands": [
+                {"command": "pause", "params": {}},              # ROS bridge
+                {"command": "navigate_back_to_dock", "params": {}},
+                {"command": "docking", "params": {"action": "dock"}}
             ]
         }
     }
@@ -894,6 +1046,8 @@ if __name__ == '__main__':
                 f.write("ROS_MASTER_URI=http://192.168.1.100:11311\n")
                 f.write("ROS_MASTER_USER=admin\n")
                 f.write("ROS_MASTER_PASSWD=password\n")
+                f.write("API_BASE_URL=http://127.0.0.1:8090/\n")
+                f.write("API_AUTH_KEY=enter-your-api-key\n")
             logger.info(f"Created {env_file} with default values - UPDATE WITH REAL CREDENTIALS")
             
         # Initialize components in correct order
@@ -916,9 +1070,22 @@ if __name__ == '__main__':
         logger.info("Initializing RmHelper")
         rm_helper = safe_init_rm_helper()
         
+        # Check if ROS API bridge is running
+        try:
+            health_check = requests.get(f"{ROS_API_URL}/health", timeout=2)
+            if health_check.ok:
+                logger.info("ROS API Bridge is running")
+            else:
+                logger.warning("ROS API Bridge is not responding properly")
+        except:
+            logger.warning("ROS API Bridge is not running - ROS commands will fail")
+            logger.info("Start it with: python ros_api_server.py")
+        
         port = 8000
         logger.info(f"Starting Flask server on port {port}...")
         logger.info("Press Ctrl+C to shutdown gracefully")
+        logger.info(f"ROS API Bridge expected at: {ROS_API_URL}")
+        logger.info(f"Robot API expected at: {ROBOT_API_BASE_URL}")
         
         try:
             app.run(debug=True, host='0.0.0.0', port=port)
