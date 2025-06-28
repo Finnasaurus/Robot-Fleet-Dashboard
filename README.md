@@ -2,7 +2,10 @@
 
 *A comprehensive monitoring dashboard for robot fleet management*
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue) ![Python](https://img.shields.io/badge/python-3.8+-green) ![License](https://img.shields.io/badge/license-MIT-blue) ![Built with Claude](https://img.shields.io/badge/Built%20with-Claude-purple)
+[![CI](https://github.com/yourusername/robot-fleet-dashboard/workflows/CI/badge.svg)](https://github.com/yourusername/robot-fleet-dashboard/actions)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 
 ## 🤖 Development Story
 
