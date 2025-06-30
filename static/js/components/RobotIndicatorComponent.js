@@ -137,7 +137,7 @@ const RobotIndicatorComponent = {
     // Cache the classes to reduce re-rendering
     buttonClasses() {
       const classes = [
-        'robot-button w-14 h-14 md:w-16 md:h-16 rounded-lg flex items-center justify-center text-white transition-colors relative'
+        'robot-button w-20 h-20 md:w-16 md:h-16 rounded-lg flex items-center justify-center text-white transition-colors relative'
       ];
       
       // Add status color
